@@ -116,6 +116,7 @@ class SEARCH:
                 item["protein"]["value"]])
             df = pd.DataFrame(result)  
             df.columns = ["level", "group", "type", "protein" ]
+            df.drop_duplicates(subset ="group", keep = "first", inplace = True) 
             df = df.set_index("group")
             df["level"] = pd.to_numeric(df["level"])
             return df 
@@ -149,13 +150,14 @@ class SEARCH:
                     row.append(item["label"]["value"])
                 else:
                     row.append(None)
-                if "parent_label" in item.keys() :
+                if "parent_label" in item.keys():
                     row.append(item["parent_label"]["value"])
                 else:
                     row.append(None)    
                 result.append(row)                
             df = pd.DataFrame(result)  
             df.columns = ["group", "type", "parent", "parent_type", "label", "parent_label" ]
+            df.drop_duplicates(subset ="group", keep = "first", inplace = True) 
             df = df.set_index("group")
             return df 
         else:
@@ -187,6 +189,7 @@ class SEARCH:
                 result.append(row)                
             df = pd.DataFrame(result)  
             df.columns = ["group", "protein", "uniprot", "label" ]
+            df.drop_duplicates(subset ="uniprot", keep = "first", inplace = True) 
             df = df.set_index("uniprot")
             return df 
         else:
@@ -214,6 +217,7 @@ class SEARCH:
                 result.append(row)                
             df = pd.DataFrame(result)  
             df.columns = ["group", "protein", "label" ]
+            df.drop_duplicates(subset ="protein", keep = "first", inplace = True) 
             df = df.set_index("protein")
             return df 
         else:
@@ -238,6 +242,7 @@ class SEARCH:
                 result.append(row)                
             df = pd.DataFrame(result)  
             df.columns = ["go_annotation", "label" ]
+            df.drop_duplicates(subset ="go_annotation", keep = "first", inplace = True) 
             df = df.set_index("go_annotation")
             return df 
         else:
@@ -262,6 +267,7 @@ class SEARCH:
             df = pd.DataFrame(result)  
             df.columns = ["uniprot", "reviewed" ]
             #df["reviewed"] = df["reviewed"].astype("bool")
+            df.drop_duplicates(subset ="uniprot", keep = "first", inplace = True) 
             df = df.set_index("uniprot")
             return df 
         else:
