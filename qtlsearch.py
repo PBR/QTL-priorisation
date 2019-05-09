@@ -64,6 +64,10 @@ class QTLSEARCH:
                         print("- root is "+qtl_gene_roots[gene])
                         if qtl_gene_roots[gene] in hog_group_trees.index:
                             print("- tree already created")
+                            if qtl_gene_protein[gene] in gene_p_initial.index:
+                                hog_group_genes[qtl_gene_roots[gene]].loc[qtl_gene_protein[gene],"p_initial"] = max(gene_p_initial[qtl_gene_protein[gene]], p_qtl_initial)
+                            else:
+                                hog_group_genes[qtl_gene_roots[gene]].loc[qtl_gene_protein[gene],"p_initial"] = p_qtl_initial
                         else:    
                             #go down the hog-tree, just to find tree structure
                             hog_group_trees[qtl_gene_roots[gene]] = self.search.get_child_groups(qtl_gene_roots[gene])
@@ -181,7 +185,7 @@ class QTLSEARCH:
             proteins = self.hog_group_genes[self.qtl_gene_roots[gene]].loc[self.hog_group_genes[self.qtl_gene_roots[gene]].group==group]
             type = self.hog_group_trees[self.qtl_gene_roots[gene]].loc[group,"type"]
             p = self.hog_group_trees[self.qtl_gene_roots[gene]].loc[group,"p_up"]
-            parent = self.hog_group_trees[self.qtl_gene_roots[gene]].loc[self.qtl_gene_roots[gene],"parent"]
+            parent = self.hog_group_trees[self.qtl_gene_roots[gene]].loc[group,"parent"]
             if not(parent==None):
               parent_type = self.hog_group_trees[self.qtl_gene_roots[gene]].loc[group,"type"]  
               parent_p = self.hog_group_trees[self.qtl_gene_roots[gene]].loc[parent,"p_down"]
@@ -196,8 +200,8 @@ class QTLSEARCH:
                     p_protein = max(self.loss_down_ortholog*p,p_protein)
                 elif type=="paralog":
                     p_protein = max(self.loss_down_paralog*p,p_protein)    
-                self.hog_group_genes[self.qtl_gene_roots[gene]].loc[protein,"p_final"] = p_protein
-            for child in children.index:        
+                self.hog_group_genes[self.qtl_gene_roots[gene]].loc[protein,"p_final"] = p_protein          
+            for child in children.index: 
                 set_p_down(gene, child)
     
         for qtl in self.qtls:
