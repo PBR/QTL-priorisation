@@ -251,7 +251,7 @@ class SEARCH:
             infile.close()
             return(new_object)
         except FileNotFoundError:
-            file = open("qtlsearch/gene_location.sparql", "r") 
+            file = open("queries/gene_location.sparql", "r") 
             query = file.read()
             file.close()
             self.sparql_pbg.setQuery(query % id)
@@ -319,7 +319,7 @@ class SEARCH:
             infile.close()
             return(new_object)
         except FileNotFoundError:
-            file = open("qtlsearch/interval_genes.sparql", "r") 
+            file = open("queries/interval_genes.sparql", "r") 
             query = file.read()
             file.close()
             self.sparql_pbg.setQuery(query % {"beginRef" : interval.loc["begin"]["ref"], "beginPos" : interval.loc["begin"]["pos"], "endRef" : interval.loc["end"]["ref"], "endPos" : interval.loc["end"]["pos"]})
@@ -352,7 +352,7 @@ class SEARCH:
             infile.close()
             return(new_object)
         except FileNotFoundError:
-            file = open("qtlsearch/parent_groups.sparql", "r") 
+            file = open("queries/parent_groups.sparql", "r") 
             query = file.read()
             file.close()
             self.sparql_oma.setQuery(query % {"protein" : "\""+protein+"\""})
@@ -388,7 +388,7 @@ class SEARCH:
             infile.close()
             return(new_object)
         except FileNotFoundError:
-            file = open("qtlsearch/child_groups.sparql", "r") 
+            file = open("queries/child_groups.sparql", "r") 
             query = file.read()
             file.close()
             self.sparql_oma.setQuery(query % {"parent" : "<"+parent+">"})
@@ -439,7 +439,7 @@ class SEARCH:
             infile.close()
             return(new_object)
         except FileNotFoundError:
-            file = open("qtlsearch/child_proteins_uniprot.sparql", "r") 
+            file = open("queries/child_proteins_uniprot.sparql", "r") 
             query = file.read()
             file.close()
             self.sparql_oma.setQuery(query % {"parent" : "<"+parent+">"})
@@ -482,7 +482,7 @@ class SEARCH:
             infile.close()
             return(new_object)
         except FileNotFoundError:
-            file = open("qtlsearch/child_proteins.sparql", "r") 
+            file = open("queries/child_proteins.sparql", "r") 
             query = file.read()
             file.close()
             self.sparql_oma.setQuery(query % {"parent" : "<"+parent+">"})
@@ -522,7 +522,7 @@ class SEARCH:
             infile.close()
             return(new_object)
         except FileNotFoundError:
-            file = open("qtlsearch/child_annotations.sparql", "r") 
+            file = open("queries/child_annotations.sparql", "r") 
             query = file.read()
             file.close()
             self.sparql_pbg.setQuery(query % {"annotation" : go_annotation})
@@ -557,7 +557,7 @@ class SEARCH:
             infile.close()
             return(new_object)
         except FileNotFoundError:
-            file = open("qtlsearch/check_uniprot_annotations.sparql", "r") 
+            file = open("queries/check_uniprot_annotations.sparql", "r") 
             query = file.read()
             file.close()
             self.sparql_uniprot.setQuery(query % {"proteins" : "<"+">,<".join(uniprot_proteins)+">", "annotations": "<"+">,<".join(go_annotations)+">"})
