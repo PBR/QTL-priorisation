@@ -7,19 +7,21 @@ PREFIX ss: <http://semanticscience.org/resource/>
 
 SELECT DISTINCT
    #main data
-   str(?gene_id) AS ?gene_id
-   str(?location_in_text) AS ?location   
+   str(?gene_id) AS ?gene_id   
+   str(?chromosome) AS ?chromosome
+   str(?begin_pos) AS ?begin_pos
+   str(?end_pos) AS ?end_pos 
 WHERE {
    
       ?gene_uri dcterms:identifier ?gene_id;
                 a obo:SO_0001217;
                 rdfs:label ?label;
                 faldo:location ?location.
-      ?location rdfs:label ?location_in_text.
       ?location faldo:begin ?begin;
                 faldo:end ?end.
       ?begin faldo:position ?begin_pos;
-                faldo:reference <%(beginRef)s>. 
+                faldo:reference <%(beginRef)s>;   
+      faldo:reference/rdfs:label ?chromosome.  
       ?end faldo:position ?end_pos;
                 faldo:reference <%(endRef)s>.     
       

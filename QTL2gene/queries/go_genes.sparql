@@ -1,0 +1,30 @@
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX dc: <http://purl.org/dc/elements/1.1/>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX uniprot: <http://purl.uniprot.org/core/>
+PREFIX obo: <http://purl.obolibrary.org/obo/>
+PREFIX so: <http://purl.obolibrary.org/obo/so#>
+PREFIX go: <http://www.geneontology.org/formats/oboInOwl#>
+PREFIX faldo: <http://biohackathon.org/resource/faldo#>
+PREFIX dcterms: <http://purl.org/dc/terms/>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+SELECT
+   count(distinct ?sgn_gene_id) as ?gene_count  
+   sum(if(str(?go),1,0)) as ?gene_with_go_count
+WHERE {
+   GRAPH <%(graphEnsembl)s> {
+      ?ensembl_prot_id <http://rdf.ebi.ac.uk/terms/ensembl/CHECKSUM> ?prot.
+       ?ensembl_transcript_id so:translates_to ?ensembl_prot_id ;
+          so:transcribed_from/dc:identifier ?sgn_gene_id .
+   }   
+   OPTIONAL {
+     GRAPH <%(graphUniprot)s> {
+       ?prot uniprot:classifiedWith ?go 
+     }
+     GRAPH <http://purl.obolibrary.org/obo/go.owl> {
+       ?go go:id "%(go)s"^^xsd:string 
+     }
+   }
+}
