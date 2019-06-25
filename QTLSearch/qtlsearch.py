@@ -113,10 +113,10 @@ class QTLSEARCH:
                             else:
                                 hog_group_genes[qtl_gene_roots[gene]].loc[qtl_gene_protein[gene],"p_initial"] = p_qtl_initial
                             if len(checked_proteins)>0:
-                                maskUnreviewed = list(set(tree_proteins_uniprot.index).intersection(checked_proteins.loc[checked_proteins.reviewed=="false"].index))
+                                maskUnreviewed = list(set(tree_proteins_uniprot.index).intersection(checked_proteins.loc[checked_proteins.reviewed==False].index))
                                 maskUnreviewed = list(set(hog_group_genes[qtl_gene_roots[gene]].index).intersection(tree_proteins_uniprot.loc[maskUnreviewed].protein.unique()))
                                 maskUnreviewed = hog_group_genes[qtl_gene_roots[gene]].loc[maskUnreviewed]
-                                maskReviewed = list(set(tree_proteins_uniprot.index).intersection(checked_proteins.loc[checked_proteins.reviewed=="true"].index))
+                                maskReviewed = list(set(tree_proteins_uniprot.index).intersection(checked_proteins.loc[checked_proteins.reviewed==True].index))
                                 maskReviewed = list(set(hog_group_genes[qtl_gene_roots[gene]].index).intersection(tree_proteins_uniprot.loc[maskReviewed].protein.unique()))
                                 maskReviewed = hog_group_genes[qtl_gene_roots[gene]].loc[maskReviewed]
                                 hog_group_genes[qtl_gene_roots[gene]].loc[maskUnreviewed.index,"reviewed"] = False
@@ -557,6 +557,41 @@ class SEARCH:
             infile.close()
             return(new_object)
         except FileNotFoundError:
+            n_uniprot = 100;
+            n_annotations = 70;
+            df = None
+            for i in range(0, len(uniprot_proteins), n_uniprot):
+                uniprot_proteins_partial = uniprot_proteins[i:(i+n_uniprot)]
+                for j in range(0, len(go_annotations), n_annotations):
+                    go_annotations_partial = go_annotations[j:(j+n_annotations)]
+                    df_partial = self.check_uniprot_annotations_partial(uniprot_proteins_partial, go_annotations_partial)
+                    if not df_partial.empty:
+                        if df is None:
+                            df = df_partial
+                        else:    
+                            df = df.merge(df_partial, how="outer", left_index=True, right_index=True)
+                            df["reviewed_x"] = df["reviewed_x"].fillna(False)
+                            df["reviewed_y"] = df["reviewed_y"].fillna(False)
+                            df["reviewed"] = df["reviewed_x"] | df["reviewed_y"]
+                            del df["reviewed_x"] 
+                            del df["reviewed_y"] 
+            if df is None:
+                df = pd.DataFrame()            
+            #cache
+            outfile = open(filename,"wb")
+            pickle.dump(df, outfile)
+            outfile.close()
+            return df
+                
+            
+    def check_uniprot_annotations_partial(self, uniprot_proteins, go_annotations):   
+        filename = self.cache + self.cache_name("get_uniprot_annotations_partial", [uniprot_proteins, go_annotations])
+        try:
+            infile = open(filename,"rb")
+            new_object = pickle.load(infile)
+            infile.close()
+            return(new_object)
+        except FileNotFoundError:
             file = open("queries/check_uniprot_annotations.sparql", "r") 
             query = file.read()
             file.close()
@@ -573,7 +608,7 @@ class SEARCH:
                     result.append(row)                
                 df = pd.DataFrame(result)  
                 df.columns = ["uniprot", "reviewed" ]
-                #df["reviewed"] = df["reviewed"].astype("bool")
+                df["reviewed"] = df["reviewed"].astype("bool")
                 df.drop_duplicates(subset ="uniprot", keep = "first", inplace = True) 
                 df = df.set_index("uniprot")
                 #cache
@@ -582,7 +617,12 @@ class SEARCH:
                 outfile.close()
                 return df 
             else:
-                return pd.DataFrame()
+                df = pd.DataFrame()
+                #cache
+                outfile = open(filename,"wb")
+                pickle.dump(df, outfile)
+                outfile.close()
+                return df
         
     
     
