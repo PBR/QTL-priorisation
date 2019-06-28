@@ -1,4 +1,7 @@
-# QTL-prioritisation
+# QTL-prioritisation using Pbg-ld 
+
+
+
 
 
 
