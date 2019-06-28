@@ -1,12 +1,11 @@
 from SPARQLWrapper import SPARQLWrapper, JSON
 
-import pandas as pd    
-    
-import pickle, hashlib    
+import pandas as pd        
+import pickle, hashlib, re    
     
 class QTLSEARCH:
     
-    def __init__(self, search, qtls, go_annotations):
+    def __init__(self, search, qtls, go_annotations, silent=True):
         self.qtls = qtls
         self.search = search
         self.go_annotations = go_annotations
@@ -16,13 +15,18 @@ class QTLSEARCH:
         self.loss_down_ortholog = 0.85
         self.loss_up_paralog = 0.7225
         self.loss_down_paralog = 0.7225
+        self.silent = silent
         #actions        
-        print("\033[1m" + "=== GET DATA ===" + "\033[0m")
+        self.log("\033[1m" + "=== GET DATA ===" + "\033[0m")
         self.qtl_gene_roots, self.qtl_gene_protein, self.hog_group_trees, self.hog_group_genes = self.__collect_data()
-        print("\033[1m" + "=== COMPUTATIONS ===" + "\033[0m")
+        self.log("\033[1m" + "=== COMPUTATIONS ===" + "\033[0m")
         self.__do_computations()
-        print("\033[1m" + "=== CREATED QTLSEARCH OBJECT ===" + "\033[0m")
+        self.log("\033[1m" + "=== CREATED QTLSEARCH OBJECT ===" + "\033[0m")
         
+    def log(self, text):
+        if self.silent==False:
+            print(text)
+    
     def report(self):                    
         reports = []
         for i in range(0,len(self.qtls)):
@@ -30,13 +34,39 @@ class QTLSEARCH:
             for gene in self.qtls[i]:
                 if gene in self.qtl_gene_roots.keys():
                     if self.qtl_gene_protein[gene] in self.hog_group_genes[self.qtl_gene_roots[gene]].index :
-                        p_initial = self.hog_group_genes[self.qtl_gene_roots[gene]].loc[self.qtl_gene_protein[gene],"p_initial"]
+                        #p_initial = self.hog_group_genes[self.qtl_gene_roots[gene]].loc[self.qtl_gene_protein[gene],"p_initial"]
                         p_final = self.hog_group_genes[self.qtl_gene_roots[gene]].loc[self.qtl_gene_protein[gene],"p_final"]
-                        report.append([gene, p_initial, p_final, self.qtl_gene_protein[gene]])                                                                    
+                        report.append([gene, None, None,
+                                       None, None, None, p_final])                                                                    
             df = pd.DataFrame(report)  
-            df.columns = ["gene", "p_initial", "p_final", "protein" ]
-            df = df.set_index("gene")
-            df.sort_values(by=["p_final","p_initial","gene"], ascending=[0, 0, 1], inplace=True)
+            df.columns = ["gene_id", 
+                          "alias",
+                          "uniprot_id",
+                          "description",
+                          "chromosome",
+                          "location",
+                          "score"]
+            df = df.set_index("gene_id")
+            df.sort_values(by=["score","gene_id"], ascending=[0, 1], inplace=True)
+            #additional information
+            for gene_id in df.index:
+                report_data = self.search.get_gene_report(gene_id)
+                for id in report_data.index:
+                    if report_data.loc[id, "alias"] == None:
+                        df.at[id, "alias"] = ""
+                    else:    
+                        df.at[id, "alias"] = report_data.loc[id, "alias"]
+                    if report_data.loc[id, "uniprot_id"] == None:
+                        df.at[id, "uniprot_id"] = ""
+                    else:    
+                        df.at[id, "uniprot_id"] = report_data.loc[id, "uniprot_id"]
+                    if report_data.loc[id, "description"] == None:
+                        df.at[id, "description"] = ""
+                    else:    
+                        df.at[id, "description"] = report_data.loc[id, "description"]
+                    df.at[id, "chromosome"] = re.sub("[^\d]",'',report_data.loc[id, "chromosome"])
+                    df.at[id, "location"] = report_data.loc[id, "begin"] + "-" + report_data.loc[id, "end"]            
+            
             reports.append(df)                                          
             return(reports)        
         
@@ -54,16 +84,16 @@ class QTLSEARCH:
                 if not(gene in qtl_gene_protein.keys()):
                     p_qtl_initial = 1.0/len(qtl)        
                     #start searching
-                    print("\033[1m"+"Search for "+gene+"\033[0m")
+                    self.log("\033[1m"+"Search for "+gene+"\033[0m")
                     #first, go up in the hog-tree
                     parent_groups = self.search.get_parent_groups(gene)
                     if len(parent_groups)>0:
                         #define the root of the tree
                         qtl_gene_roots[gene] = parent_groups.index[0]
                         qtl_gene_protein[gene] = parent_groups.loc[parent_groups.index[0]].protein
-                        print("- root is "+qtl_gene_roots[gene])
+                        self.log("- root is "+qtl_gene_roots[gene])
                         if qtl_gene_roots[gene] in hog_group_trees.index:
-                            print("- tree already created")
+                            self.log("- tree already created")
                             if qtl_gene_protein[gene] in gene_p_initial.index:
                                 hog_group_genes[qtl_gene_roots[gene]].loc[qtl_gene_protein[gene],"p_initial"] = max(gene_p_initial[qtl_gene_protein[gene]], p_qtl_initial)
                             else:
@@ -74,12 +104,12 @@ class QTLSEARCH:
                             hog_group_trees[qtl_gene_roots[gene]].loc[:,"p_initial"] = pd.Series(0.0, index=hog_group_trees[qtl_gene_roots[gene]].index)        
                             hog_group_trees[qtl_gene_roots[gene]].loc[:,"p_up"] = pd.Series(0.0, index=hog_group_trees[qtl_gene_roots[gene]].index)        
                             hog_group_trees[qtl_gene_roots[gene]].loc[:,"p_down"] = pd.Series(0.0, index=hog_group_trees[qtl_gene_roots[gene]].index)        
-                            print("- tree of groups fetched: "+str(len(hog_group_trees[qtl_gene_roots[gene]])))
+                            self.log("- tree of groups fetched: "+str(len(hog_group_trees[qtl_gene_roots[gene]])))
                             #go down again, now to find proteins
                             tree_proteins = self.search.get_child_proteins(qtl_gene_roots[gene])
                             tree_proteins_uniprot = self.search.get_child_proteins_uniprot(qtl_gene_roots[gene])
-                            print("- proteins within tree fetched: "+str(len(tree_proteins)))
-                            print("- uniprot proteins within tree fetched: "+str(len(tree_proteins_uniprot)))
+                            self.log("- proteins within tree fetched: "+str(len(tree_proteins)))
+                            self.log("- uniprot proteins within tree fetched: "+str(len(tree_proteins_uniprot)))
                             #create final list of checked proteins
                             hog_group_genes[qtl_gene_roots[gene]] = tree_proteins
                             hog_group_genes[qtl_gene_roots[gene]].loc[:,"reviewed"] = pd.Series("unknown", index=hog_group_genes[qtl_gene_roots[gene]].index)
@@ -95,14 +125,14 @@ class QTLSEARCH:
                             #check chunks of proteins in uniprot
                             for i in range(0,len(lists_proteins)):
                                 checked_proteins_sublist = self.search.check_uniprot_annotations(lists_proteins[i], list(self.go_annotations.index))
-                                print("  * check proteins ("+str((i*n)+1)+"-"+str(min((i+1)*n,len(tree_proteins)))+"): "+
+                                self.log("  * check proteins ("+str((i*n)+1)+"-"+str(min((i+1)*n,len(tree_proteins)))+"): "+
                                       str(len(checked_proteins_sublist))+" with required annotation")
                                 #collect group labels to give some indication of origin
                                 mask = list(tree_proteins_uniprot.loc[checked_proteins_sublist.index].protein.unique())
                                 mask = list(set(tree_proteins.index).intersection(mask))
                                 sublist_labels = list(tree_proteins.loc[mask].label.dropna().unique())
                                 if len(sublist_labels)>0:
-                                      print("    -> "+", ".join(sublist_labels))
+                                      self.log("    -> "+", ".join(sublist_labels))
                                 #add checked proteins from chunk to the collective list        
                                 checked_proteins_list.append(checked_proteins_sublist)
                             checked_proteins = pd.concat(checked_proteins_list)                 
@@ -132,23 +162,23 @@ class QTLSEARCH:
                                 else:        
                                     gene_p_initial[positiveProbablilityProtein] = hog_group_genes[qtl_gene_roots[gene]].loc[positiveProbablilityProtein,"p_initial"]
                             #report results
-                            print("- checked "+str(len(list_proteins))+" uniprot proteins: "+str(len(checked_proteins))+" with required annotation")
+                            self.log("- checked "+str(len(list_proteins))+" uniprot proteins: "+str(len(checked_proteins))+" with required annotation")
                             #including details about reviewed status
                             if len(checked_proteins)>0:
                                 reviewedList = checked_proteins.groupby("reviewed")
                                 if len(reviewedList)>0:
                                     for label,number in reviewedList.size().items():
-                                        print("  -> for "+str(number)+" of these "+str(len(list_proteins))+" items, reviewed is "+str(label))                     
-                            print("- checked "+str(len(tree_proteins))+" proteins: "+str(len(hog_group_genes[qtl_gene_roots[gene]]["reviewed"].dropna()))+" linked to uniprot with required annotation")
+                                        self.log("  -> for "+str(number)+" of these "+str(len(list_proteins))+" items, reviewed is "+str(label))                     
+                            self.log("- checked "+str(len(tree_proteins))+" proteins: "+str(len(hog_group_genes[qtl_gene_roots[gene]]["reviewed"].dropna()))+" linked to uniprot with required annotation")
                             if len(hog_group_genes[qtl_gene_roots[gene]])>0:
                                 reviewedList = hog_group_genes[qtl_gene_roots[gene]].groupby("reviewed")
                                 if len(reviewedList)>0:
                                     for label,number in reviewedList.size().items():
-                                        print("  -> for "+str(number)+" of these "+str(len(hog_group_genes[qtl_gene_roots[gene]]))+" items reviewed is marked as "+str(label))                     
+                                        self.log("  -> for "+str(number)+" of these "+str(len(hog_group_genes[qtl_gene_roots[gene]]))+" items reviewed is marked as "+str(label))                     
 
                     else:
                         #no hog groups, can't do anything with this...
-                        print("- no groups found")
+                        self.log("- no groups found")
 
         #update initial probabilities from other genes and qtls    
         for gene in qtl_gene_protein.keys():
@@ -177,7 +207,7 @@ class QTLSEARCH:
                 elif type=="paralog":    
                     p +=  self.loss_up_paralog * get_p_up(gene, child)   
             self.hog_group_trees[self.qtl_gene_roots[gene]].loc[group,"p_up"] = p
-            #print("Group "+group+" - "+type+": "+str(p))
+            #self.log("Group "+group+" - "+type+": "+str(p))
             return p;
 
         def set_p_down(gene, group):
@@ -207,7 +237,7 @@ class QTLSEARCH:
         for qtl in self.qtls:
             for gene in qtl:        
                 if gene in self.qtl_gene_roots.keys():
-                    print("Compute for "+gene)
+                    self.log("Compute for "+gene)
                     #reset
                     self.hog_group_trees[self.qtl_gene_roots[gene]].loc[:,"p_up"] = 0.0
                     self.hog_group_trees[self.qtl_gene_roots[gene]].loc[:,"p_down"] = 0.0
@@ -217,7 +247,7 @@ class QTLSEARCH:
                     #go down
                     set_p_down(gene, self.qtl_gene_roots[gene])
                 else:
-                    print("Skip "+gene)
+                    self.log("Skip "+gene)
         
 
     
@@ -284,9 +314,9 @@ class SEARCH:
         locations = pd.concat([self.get_location(g1), self.get_location(g2)])
         display(locations[["location"]])
         if(len(locations.index)!=2) :
-            print("unexpected number of rows in locations:",len(locations.index))
+            self.log("unexpected number of rows in locations:",len(locations.index))
         elif(locations.iloc[0]['end_pos']>locations.iloc[1]['begin_pos']) & (g1!=g2) :
-            print("unexpected order",locations.index[0],"and",locations.index[1])
+            self.log("unexpected order",locations.index[0],"and",locations.index[1])
         else :
             result = []
             if locations.iloc[0]["end_pos"]>locations.iloc[0]["begin_pos"] :
@@ -624,7 +654,70 @@ class SEARCH:
                 outfile.close()
                 return df
         
-    
+    #get gene info for report
+    def get_gene_report(self, gene_id):
+        filename = self.cache + self.cache_name("get_gene_report", gene_id)
+        try:
+            infile = open(filename,"rb")
+            new_object = pickle.load(infile)
+            infile.close()
+            return(new_object)
+        except FileNotFoundError:
+            file = open("queries/gene_report.sparql", "r") 
+            query = file.read()
+            file.close()
+            self.sparql_pbg.setQuery(query % {"id" : gene_id})
+            # JSON example
+            response = self.sparql_pbg.query().convert()
+            result = []
+            if response["results"]["bindings"]: 
+                for item in response["results"]["bindings"]:
+                    row = [
+                      item["id"]["value"],                  
+                      item["chrom"]["value"],                  
+                      item["begin"]["value"],                  
+                      item["end"]["value"]
+                    ] 
+                    if "alias" in item.keys() :
+                        row.append(item["alias"]["value"])
+                    else:
+                        row.append(None)
+                    if "uniprot_id" in item.keys() :
+                        row.append(item["uniprot_id"]["value"])
+                    else:
+                        row.append(None)                     
+                    if "comment" in item.keys() :
+                        match = re.search("Note\:([^\(;]*)[\(;]", item["comment"]["value"])
+                        if match:
+                            row.append(match.group(1).strip())
+                        elif "description" in item.keys() :
+                            row.append(item["description"]["value"])
+                        else:
+                            row.append(None)      
+                    elif "description" in item.keys() :
+                        row.append(item["description"]["value"])
+                    else:
+                        row.append(None)        
+                    if "comment" in item.keys() :
+                        row.append(item["comment"]["value"])
+                    else:
+                        row.append(None)    
+                    result.append(row)                
+                df = pd.DataFrame(result)  
+                df.columns = ["gene_id", "chromosome", 
+                              "begin", "end", "alias", 
+                              "uniprot_id", "description" , "comment"]
+                df = df.set_index("gene_id")
+                #cache
+                outfile = open(filename,"wb")
+                pickle.dump(df, outfile)
+                outfile.close()
+                return df 
+            else:
+                return pd.DataFrame()    
+        
+        
+        
     
 
     

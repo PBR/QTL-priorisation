@@ -1,0 +1,43 @@
+PREFIX up:<http://purl.uniprot.org/core/> 
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX dcterms: <http://purl.org/dc/terms/>
+PREFIX faldo: <http://biohackathon.org/resource/faldo#>
+PREFIX owl:<http://www.w3.org/2002/07/owl#> 
+PREFIX skos:<http://www.w3.org/2004/02/skos/core#>
+PREFIX obo:<http://purl.obolibrary.org/obo/so#> 
+
+SELECT
+   "%(id)s" AS ?id
+   str(?chrom) AS ?chrom
+   str(?begin_pos) AS ?begin
+   str(?end_pos) AS ?end
+   str(?label) AS ?alias
+   str(?uniprot_id) AS ?uniprot_id
+   str(?description) AS ?description
+   str(?comment) AS ?comment
+WHERE {
+  ?item1 dc:identifier "%(id)s"
+  OPTIONAL {
+    ?item2 obo:transcribed_to ?item2A.
+    ?item2A owl:sameAs ?item2B.
+    OPTIONAL {
+      ?item2A rdfs:comment ?comment
+    }	
+    ?item1A rdfs:seeAlso ?item2B;
+    dc:identifier ?uniprot_id;
+    dc:description ?description.
+    OPTIONAL {
+      ?item1A up:encodedBy ?item1B.
+      ?item1B skos:prefLabel ?label
+    }
+  }  
+   ?item2 owl:sameAs ?item1;
+      faldo:location ?loc .
+   ?loc faldo:begin ?begin ;
+      faldo:end ?end .
+   ?begin faldo:position ?begin_pos ;
+      faldo:reference ?begin_ref .
+   ?begin_ref rdfs:label ?chrom.
+   ?end faldo:position ?end_pos. 
+}
